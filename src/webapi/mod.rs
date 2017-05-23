@@ -354,7 +354,6 @@ impl<'a> SpotifyConnectr<'a> {
                 self.expire_utc = Some(self.expire_offset_to_utc(expires_in));
             },
             None => {
-                self.authenticate();
             }
         }
         //let (access_token, expires_in) = ;
@@ -383,17 +382,6 @@ impl<'a> SpotifyConnectr<'a> {
         }
         self.refresh_access_token();
     }
-    pub fn authenticate(&mut self) {
-        info!("Requesting fresh credentials.");
-        self.auth_code = http::authenticate(self.api.get().scopes, self.api.get().authorize, &self.settings);
-        let (access_token, refresh_token, expires_in) = self.request_oauth_tokens(&self.auth_code, &self.settings);
-        let expire_utc = self.expire_offset_to_utc(expires_in);
-        let _ = settings::save_tokens(&access_token, &refresh_token, expire_utc);
-        self.access_token = Some(access_token);
-        self.refresh_token = Some(refresh_token);
-        self.expire_utc = Some(expire_utc);
-        let _ = self.schedule_token_refresh();
-    }
     pub fn request_oauth_tokens(&self, auth_code: &str, settings: &settings::Settings) -> (String, String, u64) {
     let query = QueryString::new()
         .add("grant_type", "authorization_code")
@@ -412,7 +400,6 @@ impl<'a> SpotifyConnectr<'a> {
             self.refresh_access_token();
             return ()
         }
-        self.authenticate()
     }
     pub fn bearer_token(&self) -> http::AccessToken {
         match self.access_token {
@@ -449,8 +436,6 @@ impl<'a> SpotifyConnectr<'a> {
         match json_response.code {
             Some(200) => serde_json::from_str(&json_response.data.unwrap()).unwrap(),
             Some(401) => {
-                warn!("Access token invalid.  Attempting to reauthenticate.");
-                self.refresh_access_token();
                 None
             }
             _ => None
@@ -462,8 +447,6 @@ impl<'a> SpotifyConnectr<'a> {
         match json_response.code {
             Some(200) => serde_json::from_str(&json_response.data.unwrap()).unwrap(),
             Some(401) => {
-                warn!("Access token invalid.  Attempting to reauthenticate.");
-                self.refresh_access_token();
                 None
             }
             _ => None

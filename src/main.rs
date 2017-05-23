@@ -396,26 +396,10 @@ fn main() {
     }
 
     while running.load(Ordering::SeqCst) {
-        let now = time::now_utc().to_timespec().sec as i64;
-        if now > refresh_time_utc && status.can_redraw() && update_state(&mut app, &mut spotify) {
-            // Redraw the whole menu once every 60 seconds, or sooner if a
-            // command is processed later.
-            clear_menu(&mut app, &mut spotify, &mut status);
-            fill_menu(&mut app, &mut spotify, &mut status);
-            refresh_time_utc = refresh_time(&mut app, now);
-            info!("Refreshed Spotify state.");
-        }
-
-        spotify.await_once(false);
-        if let Ok(s) = rx.try_recv() {
-            println!("Received {}", s);
-            let cmd: MenuCallbackCommand = serde_json::from_str(&s).unwrap();
+        let cmd: MenuCallbackCommand = {action: Volume, sender: 0x42, data: ""};
             handle_callback(&mut app, &mut spotify, &mut status, &cmd);
-            refresh_time_utc = now + 1;
-        }
         status.run(false);
         sleep(Duration::from_millis(100));
-    }
     info!("Exiting.\n");
     if let Some(mut tiny_proc) = tiny {
         let _ = tiny_proc.kill();
